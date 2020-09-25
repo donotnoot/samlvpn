@@ -58,11 +58,7 @@ func main() {
 		log.Println(errors.Wrap(err, "could not get response"))
 	}
 
-	realCredsFile, _, err := tmpfile(fmt.Sprintf(
-		"N/A\nCRV1::%s::%s", SID, response))
-	if err != nil {
-		log.Fatal(errors.Wrap(err, "could not create real credential file"))
-	}
+	credentials := fmt.Sprintf("N/A\nCRV1::%s::%s", SID, response)
 
 	cmd := exec.Command(
 		"sudo",
@@ -74,13 +70,30 @@ func main() {
 		"--proto", vpnProto,
 		"--remote", vpnRemote, fmt.Sprint(vpnPort),
 		"--script-security", "2",
-		"--route-up", fmt.Sprintf("'/bin/rm %s'", realCredsFile),
-		"--auth-user-pass", realCredsFile,
 	)
 
 	if runCommand {
-		cmd.Run()
+		// Read creds from stdin
+		cmd.Args = append(cmd.Args, "--auth-user-pass", "/dev/stdin")
+		cmd.Stdin = bytes.NewBufferString(credentials)
+
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Run(); err != nil {
+			log.Fatal(err)
+		}
 	} else {
+		realCredsFile, _, err := tmpfile(credentials)
+		if err != nil {
+			log.Fatal(errors.Wrap(err, "could not create real credential file"))
+		}
+		log.Println("saved credentials to", realCredsFile)
+
+		cmd.Args = append(cmd.Args,
+			"--route-up", fmt.Sprintf("'/bin/rm %s'", realCredsFile),
+			"--auth-user-pass", realCredsFile)
+
 		fmt.Print(cmd.String())
 	}
 }
@@ -145,7 +158,6 @@ func tmpfile(contents string) (string, func(), error) {
 func parseOutput(output string) (*url.URL, string, error) {
 	for _, line := range strings.Split(output, "\n") {
 		if strings.Contains(line, "AUTH_FAILED") {
-			fmt.Println(line)
 			split := strings.Split(line, ":")
 			if len(split) < 10 {
 				return nil, "", fmt.Errorf("could not find SID in output")
