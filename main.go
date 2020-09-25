@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -20,6 +22,7 @@ func main() {
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "could not resolve VPN hostname"))
 	}
+	log.Println("IP Address:", vpnRemote)
 
 	log.Println("obtaining AUTH_FAILED response")
 	output, err := samlAuthErrorLogOutput(vpnRemote)
@@ -76,7 +79,7 @@ func main() {
 	if runCommand {
 		// Read creds from stdin
 		cmd.Args = append(cmd.Args, "--auth-user-pass", "/dev/stdin")
-		cmd.Stdin = bytes.NewBufferString(credentials)
+		cmd.Stdin = NewRepeatingBuffer(credentials)
 
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -100,25 +103,26 @@ func main() {
 }
 
 func samlAuthErrorLogOutput(vpnRemote string) (string, error) {
-	bogusCredsFile, bogusCleanup, err := tmpfile("N/A\nACS::35001")
-	if err != nil {
-		return "", err
-	}
-	defer bogusCleanup()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
 
-	cmd := exec.Command(
+	cmd := exec.CommandContext(
+		ctx,
 		openvpn,
 		"--config", vpnConfig,
 		"--verb", "3",
 		"--proto", vpnProto,
 		"--remote", vpnRemote, fmt.Sprint(vpnPort),
 		"--auth-retry", "none",
-		"--auth-user-pass", bogusCredsFile,
+		"--auth-user-pass", "/dev/stdin",
 	)
 	output := &bytes.Buffer{}
+	cmd.Stdin = NewRepeatingBuffer("N/A\nACS::35001")
 	cmd.Stdout = output
 	cmd.Stderr = output
-	_ = cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
 
 	return output.String(), nil
 }
