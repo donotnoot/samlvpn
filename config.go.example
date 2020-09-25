@@ -13,10 +13,10 @@ const (
 	vpnPort  = 443
 	vpnProto = "udp"
 
-	// Config file for the VPN.
+	// Configuration file for the VPN.
 	vpnConfig = "/home/your-username/vpn-config-file.ovpn"
 
-	// Server address for SAML callback.
+	// Address to listen on for the SAML callback.
 	serverAddress = "0.0.0.0:35001"
 
 	// Server timeout for waiting for SAML callback.
@@ -26,7 +26,7 @@ const (
 	// Leave empty to just display the URL in the terminal.
 	browserCommand = "chromium"
 
-	// URL to redirect you after connecting.
+	// URL to redirect you after connecting. Empty string for no redirection.
 	redirectURL = ""
 
 	// This option controls whether to try to run the final OpenVPN command
