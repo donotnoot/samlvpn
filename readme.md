@@ -81,6 +81,17 @@ At this point, a connection to the VPN is possible by using the username `N/A`
 and crafting a password containing the SAML payload and some metadata from the
 previous call.
 
+### Things to keep in mind
+
+When running this with the `runCommand` option set to `false`, the credentials
+will be stored in a temporary directory (usually `/tmp`), in a file called
+`openvpn-saml`. The OpenVPN command instructs OpenVPN to delete this file as
+soon as the connection is established, but if OpenVPN fails to do this, the
+credentials might stay there. It is for this reason that I recommend using
+SamlVPN with the `runCommand` option set to `true`. When it is set to `true`,
+the credentials are only stored in memory, and passed to OpenVPN through
+standard input.
+
 ### Credit
 
 This is based on [Alex Samorukov's work](github.com/samm-git/aws-vpn-client).
