@@ -24,7 +24,8 @@ func main() {
 	log.Println("obtaining AUTH_FAILED response")
 	output, err := samlAuthErrorLogOutput(vpnRemote)
 	if err != nil {
-		log.Fatal(errors.Wrap(err, "could not get AUTH_FAILED response"))
+		log.Fatal(errors.Wrapf(err,
+			"could not get AUTH_FAILED response, got\n%s", output))
 	}
 
 	log.Println("parsing AUTH_FAILED response")
