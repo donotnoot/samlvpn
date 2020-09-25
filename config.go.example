@@ -32,7 +32,7 @@ const (
 	// This option controls whether to try to run the final OpenVPN command
 	// directly from this program or whether to simply output the command to
 	// stdout so you can pipe it into bash or sh or w/e.
-	runCommand = false
+	runCommand = true
 )
 
 // vim: ft=go
