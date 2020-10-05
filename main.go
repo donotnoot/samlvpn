@@ -77,15 +77,13 @@ func main() {
 	)
 
 	if runCommand {
-		// Read creds from stdin
 		cmd.Args = append(cmd.Args, "--auth-user-pass", "/dev/stdin")
-		cmd.Stdin = NewRepeatingBuffer(credentials)
-
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		cmd.Stdin = bytes.NewBufferString(credentials)
 
 		if err := cmd.Run(); err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 	} else {
 		realCredsFile, _, err := tmpfile(credentials)
@@ -117,7 +115,7 @@ func samlAuthErrorLogOutput(vpnRemote string) (string, error) {
 		"--auth-user-pass", "/dev/stdin",
 	)
 	output := &bytes.Buffer{}
-	cmd.Stdin = NewRepeatingBuffer("N/A\nACS::35001")
+	cmd.Stdin = bytes.NewBufferString("N/A\nACS::35001")
 	cmd.Stdout = output
 	cmd.Stderr = output
 	if err := cmd.Run(); err != nil {
