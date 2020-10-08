@@ -36,7 +36,7 @@ type Server struct {
 	timeout    time.Duration
 }
 
-func NewServer(address string, timeout time.Duration) *Server {
+func NewServer(address, redirectURL string, timeout time.Duration) *Server {
 	response := make(chan string)
 
 	return &Server{

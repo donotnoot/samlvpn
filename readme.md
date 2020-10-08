@@ -34,27 +34,37 @@ much bigger SAML payloads.
 Finally, you can choose to install it (`sudo make install`) or to move this
 patched binary somewhere of your liking.
 
-### Configure and compile SamlVPN
-
-For the sake of simplicity, SamlVPN is configured by modifying its source code.
-
-Run `make config.go` to generate a sample configuration file with documentation
-on what each setting does. Then, using your favourite text editor, change this
-file to suit your needs: `vim config.go`.
-
-Once you're happy with the configuration, you can then compile and/or install SamlVPN:
+### Compile SamlVPN
 
 ```bash
 # just compile:
 make bin
 
-# install to ~/go/bin
+# or, install to ~/go/bin
 make install
 ```
 
 ### Usage
 
-Once installed, simply run the program.
+Once installed, you have to configure SamlVPN. It will look for the config file under:
+
+```
+$HOME/.samlvpn
+$XDG_CONFIG_HOME/.samlvpn
+```
+
+Alternatively, you can specify a config file with the `-config` flag.
+
+There is an [example config file](./config.example) with instructions on how to
+configure the parameters. Carefully read it and change the values to something
+that suits your usage:
+
+```
+vim ./config.example
+cp ./config.example $HOME/.samlvpn
+```
+
+Finally, just run SamlVPN:
 
 ```bash
 # if just compiled
@@ -62,6 +72,9 @@ Once installed, simply run the program.
 
 # or, if installed
 samlvpn
+
+# if you're using run-command == false:
+samlvpn | sh -C
 ```
 
 ### How it works

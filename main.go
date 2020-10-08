@@ -3,8 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/url"
@@ -16,16 +19,83 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	flagConfigFile = flag.String("config", "", "config file")
+
+	defaultConfigFiles = []string{
+		"$HOME/.samlvpn",
+		"$HOME/.config/samlvpn",
+		"$XDG_CONFIG_HOME/.samlvpn",
+	}
+)
+
+func config() (*Config, error) {
+	var configFilePath string
+	if *flagConfigFile != "" {
+		configFilePath = *flagConfigFile
+	} else {
+		for _, path := range defaultConfigFiles {
+			fullPath := os.ExpandEnv(path)
+			if _, err := os.Stat(fullPath); err == nil {
+				configFilePath = fullPath
+				break
+			}
+		}
+	}
+
+	if configFilePath != "" {
+		config := defaultConfig()
+
+		file, err := os.Open(configFilePath)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not open config file")
+		}
+		defer file.Close()
+
+		if err := config.Parse(file); err != nil {
+			return nil, errors.Wrapf(err, "could not parse %q", configFilePath)
+		}
+		log.Printf("parsed config file %q", configFilePath)
+
+		return config, nil
+	}
+
+	return nil, fmt.Errorf("please specify a config file")
+
+}
+
+func openVPNConfig(path string) (*OpenVPNConfig, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not open OpenVPN config")
+	}
+	defer file.Close()
+
+	return ParseOpenVPNConfig(file)
+}
+
 func main() {
+	flag.Parse()
+	config, err := config()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	openVPNConfig, err := openVPNConfig(config.OpenVPNConfigFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("parsed OpenVPN config file")
+
 	log.Println("resolving VPN hostname")
-	vpnRemote, err := vpnIPAddress(vpnHost)
+	vpnRemote, err := vpnIPAddress(openVPNConfig.Host)
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "could not resolve VPN hostname"))
 	}
 	log.Println("IP Address:", vpnRemote)
 
 	log.Println("obtaining AUTH_FAILED response")
-	output, err := samlAuthErrorLogOutput(vpnRemote)
+	output, err := samlAuthErrorLogOutput(config, openVPNConfig)
 	if err != nil {
 		log.Fatal(errors.Wrapf(err,
 			"could not get AUTH_FAILED response, got\n%s", output))
@@ -37,14 +107,17 @@ func main() {
 		log.Fatal(errors.Wrap(err, "could not parse challenge URL"))
 	}
 
-	log.Printf("starting HTTP server on %s, timeout %v", serverAddress, timeout)
-	server := NewServer(serverAddress, timeout)
+	log.Printf("starting HTTP server on %s, timeout %v", config.ServerAddress, config.ServerTimeout)
+	server := NewServer(config.ServerAddress, config.RedirectURL, config.ServerTimeout)
 	server.Start()
 
-	if browserCommand == "" {
+	if len(config.BrowserCommand) == 0 {
 		log.Println("open this:", URL)
 	} else {
-		cmd := exec.Command(browserCommand, URL.String())
+		cmd := exec.Command(
+			config.BrowserCommand[0],
+			append(config.BrowserCommand[1:], URL.String())...,
+		)
 		log.Println("launching", cmd)
 		output := &bytes.Buffer{}
 		cmd.Stderr = output
@@ -66,17 +139,16 @@ func main() {
 
 	cmd := exec.Command(
 		"sudo",
-		openvpn,
-		"--config", vpnConfig,
+		config.OpenVPNBinary,
+		"--config", config.OpenVPNConfigFile,
 		"--verb", "3",
 		"--auth-nocache",
 		"--inactive", "3600",
-		"--proto", vpnProto,
-		"--remote", vpnRemote, fmt.Sprint(vpnPort),
-		"--script-security", "2",
+		"--proto", openVPNConfig.Protocol,
+		"--remote", vpnRemote, fmt.Sprint(openVPNConfig.Port),
 	)
 
-	if runCommand {
+	if config.RunCommand {
 		cmd.Args = append(cmd.Args, "--auth-user-pass", "/dev/stdin")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -85,32 +157,33 @@ func main() {
 		if err := cmd.Run(); err != nil {
 			log.Println(err)
 		}
-	} else {
-		realCredsFile, _, err := tmpfile(credentials)
-		if err != nil {
-			log.Fatal(errors.Wrap(err, "could not create real credential file"))
-		}
-		log.Println("saved credentials to", realCredsFile)
 
-		cmd.Args = append(cmd.Args,
-			"--route-up", fmt.Sprintf("'/bin/rm %s'", realCredsFile),
-			"--auth-user-pass", realCredsFile)
-
-		fmt.Print(cmd.String())
+		return
 	}
+
+	credsFile, err := tmpfile(config, credentials)
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "could not create credentials file"))
+	}
+	defer credsFile.Close()
+	log.Println("saved credentials to", credsFile.Name())
+
+	cmd.Args = append(cmd.Args, "--auth-user-pass", credsFile.Name())
+
+	fmt.Print(cmd.String())
 }
 
-func samlAuthErrorLogOutput(vpnRemote string) (string, error) {
+func samlAuthErrorLogOutput(config *Config, ovpnConfig *OpenVPNConfig) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	cmd := exec.CommandContext(
 		ctx,
-		openvpn,
-		"--config", vpnConfig,
+		config.OpenVPNBinary,
+		"--config", config.OpenVPNConfigFile,
 		"--verb", "3",
-		"--proto", vpnProto,
-		"--remote", vpnRemote, fmt.Sprint(vpnPort),
+		"--proto", ovpnConfig.Protocol,
+		"--remote", ovpnConfig.Host, fmt.Sprint(ovpnConfig.Port),
 		"--auth-retry", "none",
 		"--auth-user-pass", "/dev/stdin",
 	)
@@ -125,8 +198,20 @@ func samlAuthErrorLogOutput(vpnRemote string) (string, error) {
 	return output.String(), nil
 }
 
+func randomString() string {
+	b := make([]byte, 12)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+
+	return hex.EncodeToString(b)
+}
+
 func vpnIPAddress(hostname string) (string, error) {
-	addrs, err := net.LookupHost("randomhostname." + hostname)
+	host := randomString() + "." + hostname
+	log.Println("looking up", host)
+	addrs, err := net.LookupHost(host)
 	if err != nil {
 		return "", errors.Wrap(err, "could not lookup host")
 	}
@@ -136,25 +221,27 @@ func vpnIPAddress(hostname string) (string, error) {
 	return addrs[0], nil
 }
 
-func tmpfile(contents string) (string, func(), error) {
-	file, err := ioutil.TempFile("", "openvpn-saml")
-	if err != nil {
-		return "", nil, errors.Wrap(err, "could not create credentials temp file")
-	}
-	if _, err := fmt.Fprintf(file, contents); err != nil {
-		return "", nil, errors.Wrap(err, "could not write credentials temp file")
-	}
-	if err := file.Sync(); err != nil {
-		return "", nil, errors.Wrap(err, "could not flush credentials temp file")
-	}
-
-	cleanup := func() {
-		if err := os.Remove(file.Name()); err != nil {
-			log.Fatalf("could not remove credentials temp file %q: %s", file.Name(), err)
+func tmpfile(config *Config, contents string) (*os.File, error) {
+	if _, err := os.Stat(config.TempCredentialsLocation); err == nil {
+		err := os.Remove(config.TempCredentialsLocation)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not delete old file")
 		}
 	}
 
-	return file.Name(), cleanup, nil
+	file, err := os.OpenFile(
+		config.TempCredentialsLocation,
+		os.O_RDWR|os.O_CREATE|os.O_TRUNC,
+		os.FileMode(config.TempCredentialsPermissions))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create credentials file")
+	}
+
+	if _, err := io.WriteString(file, contents); err != nil {
+		return nil, errors.Wrap(err, "could not write temp file contents")
+	}
+
+	return file, nil
 }
 
 // parseOutput crudely gets the SAML URL and the SID from the logs output.
@@ -163,7 +250,7 @@ func parseOutput(output string) (*url.URL, string, error) {
 		if strings.Contains(line, "AUTH_FAILED") {
 			split := strings.Split(line, ":")
 			if len(split) < 10 {
-				return nil, "", fmt.Errorf("could not find SID in output")
+				return nil, "", fmt.Errorf("could not find SID in output: %q", line)
 			}
 			url, err := url.Parse(split[8] + ":" + split[9])
 			if err != nil {
