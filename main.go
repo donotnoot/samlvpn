@@ -177,22 +177,25 @@ func samlAuthErrorLogOutput(config *Config, ovpnConfig *OpenVPNConfig) (string, 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
+	authFile, err := tmpfile(config, "N/A\nACS::35001")
+	if err != nil {
+		return "", errors.Wrap(err, "could not create temp auth file to get AUTH_FAILED response")
+	}
+	defer authFile.Close()
+
 	cmd := exec.CommandContext(
 		ctx,
 		config.OpenVPNBinary,
 		"--config", config.OpenVPNConfigFile,
 		"--verb", "3",
-		"--proto", ovpnConfig.Protocol,
-		"--remote", ovpnConfig.Host, fmt.Sprint(ovpnConfig.Port),
 		"--auth-retry", "none",
-		"--auth-user-pass", "/dev/stdin",
+		"--auth-user-pass", authFile.Name(),
 	)
 	output := &bytes.Buffer{}
-	cmd.Stdin = bytes.NewBufferString("N/A\nACS::35001")
 	cmd.Stdout = output
 	cmd.Stderr = output
 	if err := cmd.Run(); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "could not run command to get AUTH_FAILED response")
 	}
 
 	return output.String(), nil
