@@ -97,8 +97,7 @@ func main() {
 	log.Println("obtaining AUTH_FAILED response")
 	output, err := samlAuthErrorLogOutput(config, openVPNConfig)
 	if err != nil {
-		log.Fatal(errors.Wrapf(err,
-			"could not get AUTH_FAILED response, got\n%s", output))
+		log.Fatal(errors.Wrap(err, "could not get AUTH_FAILED response"))
 	}
 
 	log.Println("parsing AUTH_FAILED response")
@@ -191,14 +190,16 @@ func samlAuthErrorLogOutput(config *Config, ovpnConfig *OpenVPNConfig) (string, 
 		"--auth-retry", "none",
 		"--auth-user-pass", authFile.Name(),
 	)
-	output := &bytes.Buffer{}
-	cmd.Stdout = output
-	cmd.Stderr = output
-	if err := cmd.Run(); err != nil {
-		return "", errors.Wrap(err, "could not run command to get AUTH_FAILED response")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf(
+			fmt.Sprintf(
+				"could not run command to get AUTH_FAILED response: %s\nOpenVPN output:\n%s",
+				err, string(output),
+			))
 	}
 
-	return output.String(), nil
+	return string(output), nil
 }
 
 func randomString() string {
