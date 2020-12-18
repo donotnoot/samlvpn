@@ -11,41 +11,45 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
 	// OpenVPNBinary is the absolute path to the patched OpenVPN binary.
-	OpenVPNBinary string
+	OpenVPNBinary string `yaml:"openvpn-binary"`
 
 	// OpenVPNConfigFile is the absolute path to the OpenVPN config file.
-	OpenVPNConfigFile string
+	OpenVPNConfigFile string `yaml:"openvpn-config-file"`
 
 	// ServerAddress is the address on which to serve to receive the SAML
 	// callback.
-	ServerAddress string
+	ServerAddress string `yaml:"server-address"`
 
 	// ServerTimeout is the maximum amount of time to wait before closing the
 	// server waiting for the SAML callback.
-	ServerTimeout time.Duration
+	ServerTimeout time.Duration `yaml:"server-timeout"`
 
-	// BrowserCommand is the command to run to open the SAML authorization URL.
-	BrowserCommand []string
+	// BrowserCommand is the format to run to open the SAML authorization URL.
+	BrowserCommand []string `yaml:"browser-command"`
 
 	// RedirectURL is an optional URL to redirect the user to after a
 	// successful connection.
-	RedirectURL string
+	RedirectURL string `yaml:"redirect-url"`
 
 	// RunCommand determines whether to run the command or to output the
 	// command to stdout.
-	RunCommand bool
+	RunCommand bool `yaml:"run-command"`
 
-	// TempCredentialsLocation is the location to save the temporary
+	// Retries to run OpenVPN if the VPN returns AUTH_FAILED.
+	AuthFailedRetries int `yaml:"auth-failed-retries"`
+
+	// TempCredentialsFilePath is the location to save the temporary
 	// credentials file.
-	TempCredentialsLocation string
+	TempCredentialsFilePath string `yaml:"temp-credentials-file-path"`
 
 	// TempCredentialsPermissions is the permissions for the temp credentials
 	// file.
-	TempCredentialsPermissions uint
+	TempCredentialsPermissions uint `yaml:"temp-credentials-permission"`
 }
 
 // DefaultCredsFilePath returns an absolute path to the default location for
@@ -57,74 +61,62 @@ func DefaultCredsFilePath() string {
 	return path.Join(os.Getenv("HOME"), ".samlvpn-credentials")
 }
 
-func defaultConfig() *Config {
-	return &Config{
-		ServerAddress:              "127.0.0.1:35001",
-		ServerTimeout:              time.Second * 60,
-		BrowserCommand:             []string{"x-www-browser"},
-		RunCommand:                 false,
-		TempCredentialsLocation:    DefaultCredsFilePath(),
-		TempCredentialsPermissions: 0400,
+// ParseWithDefaults parses the contents of r into c. It also sets defaults for
+// optionals if the parsed file didn't override them.
+func (c *Config) ParseWithDefaults(r io.Reader) error {
+	if err := yaml.NewDecoder(r).Decode(&c); err != nil {
+		return errors.Wrap(err, "could not decode configuration file")
 	}
-}
 
-func (c *Config) Parse(r io.Reader) error {
-	scanner := bufio.NewScanner(r)
-	lineNumber := 0
-	for scanner.Scan() {
-		lineNumber++
-		line := strings.TrimSpace(scanner.Text())
-		if len(line) == 0 {
-			continue
-		}
-		if len(line) > 0 && line[0] == '#' {
-			continue
-		}
+	if c.ServerAddress == "" {
+		c.ServerAddress = "0.0.0.0:35001"
+	}
+	if c.ServerTimeout == 0 {
+		c.ServerTimeout = time.Second * 120
+	}
 
-		parts := strings.Split(line, " ")
-		if len(parts) < 2 {
-			return fmt.Errorf("could not parse config file, invalid number of parts on line %d", lineNumber)
-		}
-
-		switch parts[0] {
-		case "openvpn-binary":
-			c.OpenVPNBinary = os.ExpandEnv(strings.TrimSpace(parts[1]))
-
-		case "openvpn-config-file":
-			c.OpenVPNConfigFile = os.ExpandEnv(strings.TrimSpace(parts[1]))
-
-		case "server-address":
-			c.ServerAddress = strings.TrimSpace(parts[1])
-
-		case "server-timeout":
-			timeout, err := time.ParseDuration(strings.TrimSpace(parts[1]))
-			if err != nil {
-				return fmt.Errorf("could not parse server-timeout: %s", err)
-			}
-			c.ServerTimeout = timeout
-
-		case "browser-command":
-			c.BrowserCommand = parts[1:]
-
-		case "redirect-url":
-			c.RedirectURL = strings.TrimSpace(parts[1])
-
-		case "run-command":
-			c.RunCommand = strings.TrimSpace(parts[1]) == "true"
-
-		case "temp-credentials-file-path":
-			c.TempCredentialsLocation = os.ExpandEnv(strings.TrimSpace(parts[1]))
-
-		case "temp-credentials-file-permissions":
-			perms, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 8, 64)
-			if err != nil {
-				return fmt.Errorf("could not parse temp-credentials-file-permissions: %s", err)
-			}
-			c.TempCredentialsPermissions = uint(perms)
-		}
+	if c.TempCredentialsFilePath == "" {
+		c.TempCredentialsFilePath = DefaultCredsFilePath()
+	}
+	if c.TempCredentialsPermissions == 0 {
+		c.TempCredentialsPermissions = 0400
 	}
 
 	return nil
+}
+
+// Validate returns errors regarding the configuration.
+func (c *Config) Validate() []error {
+	var errs []error
+
+	if c.OpenVPNBinary == "" {
+		errs = append(errs, errors.Errorf("openvpn-binary is required"))
+	}
+	if _, err := os.Stat(c.OpenVPNBinary); err != nil {
+		errs = append(errs, errors.Wrap(err, "could not stat openvpn-binary"))
+	}
+
+	if c.OpenVPNConfigFile == "" {
+		errs = append(errs, errors.Errorf("openvpn-config-file is required"))
+	}
+	if _, err := os.Stat(c.OpenVPNConfigFile); err != nil {
+		errs = append(errs, errors.Wrap(err, "could not stat openvpn-config-file"))
+	}
+
+	var hasFmtSpec bool
+	if len(c.BrowserCommand) != 0 {
+		for i := range c.BrowserCommand {
+			if c.BrowserCommand[i] == "%s" {
+				hasFmtSpec = true
+				break
+			}
+		}
+	}
+	if !hasFmtSpec {
+		errs = append(errs, errors.New("the browser-command must contain %s"))
+	}
+
+	return errs
 }
 
 type OpenVPNConfig struct {

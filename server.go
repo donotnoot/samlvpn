@@ -26,6 +26,10 @@ func samlSuccessHTML(redirectURL string) string {
 	<body>
 		<h2>Got SAML response!</h2>
 		<p>%s</p>
+		<br>
+		<small>
+			Thank you for using <a href="github.com/donotnoot/samlvpn">SamlVPN</a>!
+		</small>
 	</body>
 </html>`, redirectHTML, message)
 }
@@ -43,8 +47,21 @@ func NewServer(address, redirectURL string, timeout time.Duration) *Server {
 		timeout:  timeout,
 		response: response,
 		httpServer: &http.Server{
-			Addr: address,
+			Addr:              address,
+			ReadTimeout:       time.Second,
+			IdleTimeout:       time.Second,
+			WriteTimeout:      time.Second,
+			ReadHeaderTimeout: time.Second,
 			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				log.Println("handling HTTP request", r.Method, r.URL)
+				defer r.Body.Close()
+
+				if r.Method != http.MethodPost {
+					w.WriteHeader(http.StatusMethodNotAllowed)
+					w.Write([]byte("hey there! you might want to try POST"))
+					return
+				}
+
 				if err := r.ParseForm(); err != nil {
 					err := errors.Wrap(err, "could not parse SAML form data")
 					log.Println(err)
@@ -78,6 +95,7 @@ func (s *Server) Start() {
 			log.Println(err)
 		}
 	}()
+
 }
 
 func (s *Server) WaitForResponse() (string, error) {

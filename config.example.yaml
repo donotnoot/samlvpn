@@ -1,0 +1,55 @@
+# Do not use the tilde (~) to represent your home folder, instead use the $HOME
+# env var.
+
+# Path to the patched OpenVPN binary.
+# No default, required. Example:
+openvpn-binary: $HOME/.local/bin/openvpn-patched
+
+# Path to the OpenVPN configuration file.
+# No default, required. Example:
+openvpn-config-file: $HOME/.config/openvpn-corporate.ovpn
+
+# Server address.
+# Optional, defaults to:
+server-address: 0.0.0.0:35001
+
+# Maximum amount of time to wait for the saml response.
+# Optional. Defaults to:
+server-timeout: 60s
+
+# Format for browser command to open the SAML link. Leave empty to simply
+# display the URL. If not empty, it MUST contain exactly one element that
+# contains the substring "%s" where the link will be put in. This will be used
+# both to open the SAML login link and to open the redirect-url.
+#
+# Optional, default empty. Examples:
+# browser-command: ["firefox", "--new-window", "%s"]
+# browser-command: ["firefox", "--P work-profile", "%s"]
+# browser-command: ["chromium", "--profile-directory=Profile\ 1", "%s"]
+# browser-command: ["some-other-browser", "--open-url %s"]
+browser-command: ["chromium", "--profile-directory=Profile\ 1", "%s"]
+
+# URL to redirect to after a successful connection.
+# Optional. Leave empty for no redirect. Example:
+redirect-url: https://vpn-only.com/
+
+# Whether to run the final openvpn command or to just echo it to stdout to pipe
+# into interpreter.
+# Default: false. Optional.
+run-command: false
+
+# Sometimes the VPN will return an AUTH_FAILED error for no reason. This allows
+# N retries when this happens and run-command is true.
+# Default: 0, Recommended 10. Optional.
+auth-failed-retries: 10
+
+# Path for the temporary credentials file.
+# Default:
+#	If the env var exists: $XDG_CACHE_DIR/samlvpn-credentials
+#	Otherwise: $HOME/.samlvpn-credentials
+# Optional.
+temp-credentials-file-path: $HOME/.samlvpn-creds
+
+# Permissions for the credentials file.
+# Default: 0400; optional.
+temp-credentials-file-permission: 0400
