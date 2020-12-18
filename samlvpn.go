@@ -147,10 +147,11 @@ func (s *SAMLVPN) getLoginURLAndSID() (*url.URL, string, error) {
 }
 
 func (s *SAMLVPN) getSAMLCallback(challengeURL string) (string, error) {
-	log.Printf("starting HTTP server on %s, timeout %v",
-		s.Config.ServerAddress, s.Config.ServerTimeout)
-	server := NewServer(s.Config.ServerAddress,
-		s.Config.RedirectURL, s.Config.ServerTimeout)
+	addr := "0.0.0.0:35001"
+	timeout := time.Second * 20
+	log.Printf("starting HTTP server on %s, timeout %v", addr, timeout)
+
+	server := NewServer(addr, s.Config.RedirectURL, timeout)
 	server.Start()
 
 	s.openOrShowLink(challengeURL)

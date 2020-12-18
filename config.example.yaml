@@ -9,14 +9,6 @@ openvpn-binary: $HOME/.local/bin/openvpn-patched
 # No default, required. Example:
 openvpn-config-file: $HOME/.config/openvpn-corporate.ovpn
 
-# Server address.
-# Optional, defaults to:
-server-address: 0.0.0.0:35001
-
-# Maximum amount of time to wait for the saml response.
-# Optional. Defaults to:
-server-timeout: 60s
-
 # Format for browser command to open the SAML link. Leave empty to simply
 # display the URL. If not empty, it MUST contain exactly one element that
 # contains the substring "%s" where the link will be put in. This will be used
@@ -51,5 +43,5 @@ auth-failed-retries: 10
 temp-credentials-file-path: $HOME/.samlvpn-creds
 
 # Permissions for the credentials file.
-# Default: 0400; optional.
-temp-credentials-file-permission: 0400
+# Default: 0600; optional.
+temp-credentials-file-permission: 0600

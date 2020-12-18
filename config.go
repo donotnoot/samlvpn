@@ -8,7 +8,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -20,14 +19,6 @@ type Config struct {
 
 	// OpenVPNConfigFile is the absolute path to the OpenVPN config file.
 	OpenVPNConfigFile string `yaml:"openvpn-config-file"`
-
-	// ServerAddress is the address on which to serve to receive the SAML
-	// callback.
-	ServerAddress string `yaml:"server-address"`
-
-	// ServerTimeout is the maximum amount of time to wait before closing the
-	// server waiting for the SAML callback.
-	ServerTimeout time.Duration `yaml:"server-timeout"`
 
 	// BrowserCommand is the format to run to open the SAML authorization URL.
 	BrowserCommand []string `yaml:"browser-command"`
@@ -66,13 +57,6 @@ func DefaultCredsFilePath() string {
 func (c *Config) ParseWithDefaults(r io.Reader) error {
 	if err := yaml.NewDecoder(r).Decode(&c); err != nil {
 		return errors.Wrap(err, "could not decode configuration file")
-	}
-
-	if c.ServerAddress == "" {
-		c.ServerAddress = "0.0.0.0:35001"
-	}
-	if c.ServerTimeout == 0 {
-		c.ServerTimeout = time.Second * 120
 	}
 
 	if c.TempCredentialsFilePath == "" {
