@@ -31,7 +31,8 @@ type SAMLVPN struct {
 func (s *SAMLVPN) Configure(flagConfigFile *string) error {
 	var configFilePath string
 	var defaultConfigFiles = []string{
-		"$XDG_CONFIG_HOME/.samlvpn.yaml",
+		"$XDG_CONFIG_HOME/samlvpn/config.yaml",
+		"$XDG_CONFIG_HOME/samlvpn.yaml",
 		"$HOME/.config/samlvpn.yaml",
 		"$HOME/.samlvpn.yaml",
 	}
