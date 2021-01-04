@@ -66,6 +66,10 @@ func (c *Config) ParseWithDefaults(r io.Reader) error {
 		c.TempCredentialsPermissions = 0400
 	}
 
+	c.OpenVPNBinary = os.ExpandEnv(c.OpenVPNBinary)
+	c.OpenVPNConfigFile = os.ExpandEnv(c.OpenVPNConfigFile)
+	c.TempCredentialsFilePath = os.ExpandEnv(c.TempCredentialsFilePath)
+
 	return nil
 }
 
@@ -76,14 +80,14 @@ func (c *Config) Validate() []error {
 	if c.OpenVPNBinary == "" {
 		errs = append(errs, errors.Errorf("openvpn-binary is required"))
 	}
-	if _, err := os.Stat(c.OpenVPNBinary); err != nil {
+	if _, err := os.Stat(os.ExpandEnv(c.OpenVPNBinary)); err != nil {
 		errs = append(errs, errors.Wrap(err, "could not stat openvpn-binary"))
 	}
 
 	if c.OpenVPNConfigFile == "" {
 		errs = append(errs, errors.Errorf("openvpn-config-file is required"))
 	}
-	if _, err := os.Stat(c.OpenVPNConfigFile); err != nil {
+	if _, err := os.Stat(os.ExpandEnv(c.OpenVPNConfigFile)); err != nil {
 		errs = append(errs, errors.Wrap(err, "could not stat openvpn-config-file"))
 	}
 
