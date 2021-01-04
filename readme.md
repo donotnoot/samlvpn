@@ -12,6 +12,7 @@ connect to SAML authorized VPNs from a Linux client.
 
 - You must have a working C toolchain installed to compile OpenVPN
 	- OpenVPN requires some libraries to compile. Check their docs for details.
+	- Debian-based distributions can just `apt build-dep openvpn` to install dependencies.
 - You must have a working Go toolchain installed to compile SamlVPN
 
 ### Compile OpenVPN
@@ -49,8 +50,10 @@ make install
 Once installed, you have to configure SamlVPN. It will look for the config file under:
 
 ```
-$HOME/.samlvpn
-$XDG_CONFIG_HOME/.samlvpn
+$XDG_CONFIG_HOME/samlvpn/config.yaml
+$XDG_CONFIG_HOME/samlvpn.yaml
+$HOME/.config/samlvpn.yaml
+$HOME/.samlvpn.yaml
 ```
 
 Alternatively, you can specify a config file with the `-config` flag.
@@ -60,8 +63,8 @@ configure the parameters. Carefully read it and change the values to something
 that suits your usage:
 
 ```
-vim ./config.example
-cp ./config.example $HOME/.samlvpn
+vim ./config.example.yaml
+cp ./config.example.yaml $HOME/.samlvpn.yaml
 ```
 
 Finally, just run SamlVPN:
