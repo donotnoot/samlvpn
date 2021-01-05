@@ -108,6 +108,13 @@ SamlVPN with the `runCommand` option set to `true`. When it is set to `true`,
 the credentials are only stored in memory, and passed to OpenVPN through
 standard input.
 
+If you have been provided with an OpenVPN configuration file for a VPN that
+requires this tool to work, it might contain non-standard configuration options
+that will not be recognised by OpenVPN. You will see an error similar to
+'Options error: Unrecognized option or missing or extra parameter(s) in [file]:
+[configuration-option]'. Simply remove the configuration option that is causing
+the error.
+
 ### Credit
 
 This is based on [Alex Samorukov's work](github.com/samm-git/aws-vpn-client).
