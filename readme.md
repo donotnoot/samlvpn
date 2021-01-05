@@ -58,7 +58,7 @@ $HOME/.samlvpn.yaml
 
 Alternatively, you can specify a config file with the `-config` flag.
 
-There is an [example config file](./config.example) with instructions on how to
+There is an [example config file](./config.example.yaml) with instructions on how to
 configure the parameters. Carefully read it and change the values to something
 that suits your usage:
 
