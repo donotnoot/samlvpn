@@ -117,4 +117,4 @@ the error.
 
 ### Credit
 
-This is based on [Alex Samorukov's work](github.com/samm-git/aws-vpn-client).
+This is based on [Alex Samorukov's work](https://github.com/samm-git/aws-vpn-client).
