@@ -16,7 +16,7 @@ clean:
 	rm -rf bin
 
 patch:
-	git apply --directory openvpn openvpn-v2.4.9.diff
+	git apply --directory openvpn openvpn-v2.5.x.diff
 
 test:
 	go test ./...
