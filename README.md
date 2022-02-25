@@ -21,12 +21,12 @@ You will need to be able to compile the OpenVPN client, as it needs to be
 patched. More info on this here: [OpenVPN's INSTALL
 file](https://github.com/OpenVPN/openvpn/blob/master/INSTALL).
 
-Once you are able to compile OpenVPN, checkout the `release/2.4` branch and
-apply the `openvpn-v2.4.9.diff` patch to it:
+Once you are able to compile OpenVPN, checkout the `release/2.5` branch and
+apply the `openvpn-v2.5.x.diff` patch to it:
 
 ```bash
-git checkout release/2.4
-git apply openvpn-v2.4.9.diff
+git checkout release/2.5
+git apply openvpn-v2.5.x.diff
 ```
 
 Then, compile it again. This patch just changes some buffer sizes to allow the
