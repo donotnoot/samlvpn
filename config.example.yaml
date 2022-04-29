@@ -21,6 +21,11 @@ openvpn-config-file: $HOME/.config/openvpn-corporate.ovpn
 # browser-command: ["some-other-browser", "--open-url %s"]
 browser-command: ["chromium", "--profile-directory=Profile\ 1", "%s"]
 
+# Command to run when the connection to the VPN is lost.
+#
+# Optional, default to no command.
+connection-lost-command: ["notify-send", "SamlVPN", "Connection has been lost!"]
+
 # URL to redirect to after a successful connection.
 # Optional. Leave empty for no redirect. Example:
 redirect-url: https://vpn-only.com/

@@ -18,7 +18,8 @@ import (
 )
 
 var (
-	ErrAuthFailed = errors.New("auth failed")
+	ErrAuthFailed     = errors.New("auth failed")
+	ErrConnectionLost = errors.New("connection established then lost")
 )
 
 // SAMLVPN makes it easy to retry stuff that fails, etc.
@@ -224,9 +225,13 @@ func (s *SAMLVPN) Connect() error {
 	if s.Config.RunCommand {
 		for i := 0; i <= s.Config.AuthFailedRetries; i++ {
 			err := s.runCommand(credsFile)
-			if err == ErrAuthFailed && s.Config.AuthFailedRetries != 0 {
-				log.Println("auth failed, try #", i+1)
+			if errors.Is(err, ErrAuthFailed) && s.Config.AuthFailedRetries != 0 {
+				log.Println("Auth failed, try #", i+1, ".")
 				continue
+			}
+			if errors.Is(err, ErrConnectionLost) {
+				log.Println("Connection lost. Restart SamlVPN to reconnect.")
+				s.runConnLost()
 			}
 			return err
 		}
@@ -235,6 +240,24 @@ func (s *SAMLVPN) Connect() error {
 	s.printCommand(credsFile)
 
 	return nil
+}
+
+// runConnLost runs the command that the user wants to run when the connection
+// is lost.
+func (s *SAMLVPN) runConnLost() {
+	if len(s.Config.ConnectionLostCommand) == 0 {
+		return
+	}
+
+	cmd := exec.Command(
+		s.Config.ConnectionLostCommand[0],
+		s.Config.ConnectionLostCommand[1:]...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+	if err := cmd.Run(); err != nil {
+		log.Printf("conn lost command did not execute correctly: %s", err)
+	}
 }
 
 // rebuildCommand rebuilds the OpenVPN command with a new hostname.
@@ -285,6 +308,11 @@ func (s *SAMLVPN) runCommand(credsFile *os.File) error {
 
 		if strings.Contains(line, "AUTH_FAILED") {
 			return ErrAuthFailed
+		}
+		if strings.Contains(line, "Initialization Sequence Completed") {
+			// After the init sequence is complete, the failure can only
+			// logically be that the connection has been lost.
+			return ErrConnectionLost
 		}
 	}
 	if err := sca.Err(); err != nil {

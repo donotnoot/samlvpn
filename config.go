@@ -31,6 +31,9 @@ type Config struct {
 	// command to stdout.
 	RunCommand bool `yaml:"run-command"`
 
+	// Command to run on connection loss.
+	ConnectionLostCommand []string `yaml:"connection-lost-command"`
+
 	// Retries to run OpenVPN if the VPN returns AUTH_FAILED.
 	AuthFailedRetries int `yaml:"auth-failed-retries"`
 
