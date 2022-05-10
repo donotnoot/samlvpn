@@ -21,7 +21,7 @@ index a03d94e2..1c5ba015 100644
  #else
 -#define USER_PASS_LEN 128
 +/* make it large enough to fit SAML response */
-+#define USER_PASS_LEN 15360
++#define USER_PASS_LEN 1048576
  #endif
      char username[USER_PASS_LEN];
      char password[USER_PASS_LEN];
