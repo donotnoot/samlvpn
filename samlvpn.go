@@ -31,7 +31,7 @@ type SAMLVPN struct {
 // Configure parses all configs and sets them in s.
 func (s *SAMLVPN) Configure(flagConfigFile *string) error {
 	var configFilePath string
-	var defaultConfigFiles = []string{
+	defaultConfigFiles := []string{
 		"$XDG_CONFIG_HOME/samlvpn/config.yaml",
 		"$XDG_CONFIG_HOME/samlvpn.yaml",
 		"$HOME/.config/samlvpn.yaml",
@@ -106,7 +106,7 @@ func (s *SAMLVPN) resolveHostname() (string, error) {
 }
 
 func (s *SAMLVPN) getLoginURLAndSID() (*url.URL, string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
 	authFile, err := tmpfile(s.Config.TempCredentialsFilePath,
@@ -150,7 +150,8 @@ func (s *SAMLVPN) getLoginURLAndSID() (*url.URL, string, error) {
 
 func (s *SAMLVPN) getSAMLCallback(challengeURL string) (string, error) {
 	addr := "0.0.0.0:35001"
-	timeout := time.Second * 20
+	// Long timeout to allow user to follow SAML prompts etc.
+	timeout := time.Second * 120
 	log.Printf("starting HTTP server on %s, timeout %v", addr, timeout)
 
 	server := NewServer(addr, s.Config.RedirectURL, timeout)
@@ -176,8 +177,7 @@ func (s *SAMLVPN) openOrShowLink(url string) {
 
 	for i := range s.Config.BrowserCommand {
 		if strings.Contains(s.Config.BrowserCommand[i], "%s") {
-			s.Config.BrowserCommand[i] =
-				fmt.Sprintf(s.Config.BrowserCommand[i], url)
+			s.Config.BrowserCommand[i] = fmt.Sprintf(s.Config.BrowserCommand[i], url)
 			break
 		}
 	}
